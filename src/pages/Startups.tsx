@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import StartupList, { StartupListItem } from '@/components/StartupList';
-import ScoreCard from '@/components/ScoreCard';
+import ScoreCard, { ScoreCardMetric } from '@/components/ScoreCard';
 import SectorSelect from '@/components/SectorSelect';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -64,7 +63,7 @@ const sampleStartups: StartupListItem[] = [
   }
 ];
 
-const sampleMetrics = [
+const sampleMetrics: ScoreCardMetric[] = [
   { criteria: 'Monthly Visits', value: '125K visitors', importance: 'Medium', score: 8 },
   { criteria: 'Last Funding / Total Funding', value: '$30M in Series C', importance: 'High', score: 9 },
   { criteria: 'Valuation / Total Funding', value: '$150M / $45M', importance: 'High', score: 9 },
