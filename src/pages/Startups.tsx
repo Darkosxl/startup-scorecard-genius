@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import StartupList, { StartupListItem } from '@/components/StartupList';
 import ScoreCard, { ScoreCardMetric } from '@/components/ScoreCard';
@@ -78,14 +79,84 @@ const Startups: React.FC = () => {
   const [selectedSector, setSelectedSector] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStartupId, setSelectedStartupId] = useState<string | undefined>();
+  const [startups, setStartups] = useState<StartupListItem[]>(sampleStartups);
+  const [sectors, setSectors] = useState<string[]>(sampleSectors);
+
+  // Load startups from localStorage if available
+  useEffect(() => {
+    const savedStartups = localStorage.getItem('uploadedStartups');
+    if (savedStartups) {
+      try {
+        const parsedStartups = JSON.parse(savedStartups) as StartupListItem[];
+        if (Array.isArray(parsedStartups) && parsedStartups.length > 0) {
+          setStartups(parsedStartups);
+          
+          // Extract unique sectors from the data
+          const uniqueSectors = Array.from(
+            new Set(parsedStartups.map(startup => startup.sector))
+          ).filter(Boolean);
+          
+          if (uniqueSectors.length > 0) {
+            setSectors(uniqueSectors);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading startups data:', error);
+      }
+    }
+  }, []);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // Search logic would be implemented here
   };
 
+  // Generate metrics for the selected startup
+  const generateMetricsForStartup = (startup: StartupListItem): ScoreCardMetric[] => {
+    if (!startup) return sampleMetrics;
+    
+    return [
+      { 
+        criteria: 'Monthly Visits', 
+        value: `${(startup.monthlyVisits / 1000).toFixed(1)}K visitors`, 
+        importance: 'Medium', 
+        score: Math.min(Math.round(startup.monthlyVisits / 50000), 10) 
+      },
+      { 
+        criteria: 'Last Funding', 
+        value: `$${(startup.lastFunding / 1000000).toFixed(1)}M`, 
+        importance: 'High', 
+        score: Math.min(Math.round(startup.lastFunding / 10000000), 10) 
+      },
+      { 
+        criteria: 'Valuation', 
+        value: `$${(startup.valuation / 1000000).toFixed(1)}M`, 
+        importance: 'High', 
+        score: Math.min(Math.round(startup.valuation / 50000000), 10) 
+      },
+      { 
+        criteria: 'CAGR', 
+        value: `${startup.cagr}%`, 
+        importance: 'Very High', 
+        score: Math.min(Math.round(startup.cagr / 5), 10) 
+      },
+      { 
+        criteria: 'Market Position', 
+        value: 'Based on sector analysis', 
+        importance: 'Medium', 
+        score: 7 
+      },
+      { 
+        criteria: 'Overall Growth Potential', 
+        value: `${Math.round(startup.score * 10)}% growth score`, 
+        importance: 'High', 
+        score: Math.round(startup.score) 
+      },
+    ];
+  };
+
   // Filter startups based on sector and search query
-  const filteredStartups = sampleStartups
+  const filteredStartups = startups
     .filter(startup => 
       selectedSector === 'all' || startup.sector === selectedSector
     )
@@ -95,7 +166,7 @@ const Startups: React.FC = () => {
       startup.sector.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-  const selectedStartup = sampleStartups.find(startup => startup.id === selectedStartupId);
+  const selectedStartup = startups.find(startup => startup.id === selectedStartupId);
 
   return (
     <Layout>
@@ -125,7 +196,7 @@ const Startups: React.FC = () => {
               </form>
 
               <SectorSelect 
-                sectors={sampleSectors}
+                sectors={sectors}
                 selectedSector={selectedSector}
                 onChange={setSelectedSector}
               />
@@ -148,7 +219,7 @@ const Startups: React.FC = () => {
               <ScoreCard
                 startupName={selectedStartup.name}
                 sector={selectedStartup.sector}
-                metrics={sampleMetrics}
+                metrics={generateMetricsForStartup(selectedStartup)}
                 overallScore={selectedStartup.score}
               />
             ) : (

@@ -1,29 +1,142 @@
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
 import FileUploader from '@/components/FileUploader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowRight, Database, FileSpreadsheet, Layers } from 'lucide-react';
+import { StartupListItem } from '@/components/StartupList';
+
+// Create a context to store the uploaded startups data
+export const StartupsContext = React.createContext<{
+  startups: StartupListItem[];
+  setStartups: React.Dispatch<React.SetStateAction<StartupListItem[]>>;
+}>({
+  startups: [],
+  setStartups: () => {},
+});
 
 const Upload: React.FC = () => {
   const [isUploaded, setIsUploaded] = useState(false);
+  const [parsedData, setParsedData] = useState<StartupListItem[]>([]);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleFileUpload = (file: File) => {
     console.log('File uploaded:', file);
     setIsUploaded(true);
     
-    // This would be replaced with actual file processing logic
+    // Process the CSV file
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const csvData = event.target?.result as string;
+        const startups = parseCSV(csvData);
+        setParsedData(startups);
+        
+        toast({
+          title: "File parsed successfully",
+          description: `Found ${startups.length} startups in the uploaded file`,
+        });
+      } catch (error) {
+        console.error('Error parsing CSV:', error);
+        toast({
+          title: "Error parsing file",
+          description: "The file format may be incorrect or corrupted",
+          variant: "destructive"
+        });
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const parseCSV = (csvData: string): StartupListItem[] => {
+    // Split the CSV data into rows
+    const rows = csvData.split('\n');
+    
+    // Extract header row (assuming first row is header)
+    const headers = rows[0].split(',').map(header => header.trim());
+    
+    // Map CSV data to startup objects
+    return rows.slice(1).filter(row => row.trim()).map((row, index) => {
+      const values = row.split(',').map(value => value.trim());
+      
+      // Create a startup object with default values
+      const startup: StartupListItem = {
+        id: (index + 1).toString(),
+        name: 'Unknown',
+        sector: 'Unknown',
+        score: 0,
+        monthlyVisits: 0,
+        lastFunding: 0,
+        valuation: 0,
+        cagr: 0,
+      };
+      
+      // Map CSV values to startup properties based on headers
+      headers.forEach((header, i) => {
+        const value = values[i];
+        
+        if (header.includes('Name')) {
+          startup.name = value;
+        } else if (header.includes('Sector')) {
+          startup.sector = value;
+        } else if (header.includes('Monthly Visits')) {
+          startup.monthlyVisits = parseInt(value.replace(/[^0-9.]/g, '')) || 0;
+        } else if (header.includes('Last Funding')) {
+          startup.lastFunding = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
+        } else if (header.includes('Valuation')) {
+          startup.valuation = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
+        } else if (header.includes('CAGR')) {
+          startup.cagr = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
+        } else if (header.includes('Score')) {
+          startup.score = parseFloat(value) || calculateScore(startup);
+        }
+      });
+      
+      // Calculate score if not provided
+      if (startup.score === 0) {
+        startup.score = calculateScore(startup);
+      }
+      
+      return startup;
+    });
+  };
+  
+  // Simple scoring function based on available metrics
+  const calculateScore = (startup: StartupListItem): number => {
+    let score = 0;
+    
+    // Weight factors (these could be customizable)
+    const weights = {
+      monthlyVisits: 0.2,
+      lastFunding: 0.25,
+      valuation: 0.25,
+      cagr: 0.3
+    };
+    
+    // Normalize and add weighted scores
+    if (startup.monthlyVisits > 0) score += (Math.min(startup.monthlyVisits / 100000, 10) * weights.monthlyVisits);
+    if (startup.lastFunding > 0) score += (Math.min(startup.lastFunding / 10000000, 10) * weights.lastFunding);
+    if (startup.valuation > 0) score += (Math.min(startup.valuation / 100000000, 10) * weights.valuation);
+    if (startup.cagr > 0) score += (Math.min(startup.cagr / 10, 10) * weights.cagr);
+    
+    return Math.min(Math.round(score * 10) / 10, 10);
   };
 
   const handleProcessData = () => {
-    // This would be replaced with actual data processing logic
+    // Save data to localStorage for persistence
+    localStorage.setItem('uploadedStartups', JSON.stringify(parsedData));
+    
     toast({
       title: "Data processed successfully",
       description: "Your startup data has been processed and is ready for analysis",
     });
+    
+    // Navigate to startups page
+    navigate('/startups');
   };
 
   return (
