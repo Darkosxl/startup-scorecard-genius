@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import StartupList, { StartupListItem } from '@/components/StartupList';
@@ -5,8 +6,10 @@ import ScoreCard, { ScoreCardMetric } from '@/components/ScoreCard';
 import SectorSelect from '@/components/SectorSelect';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 import { useStartups } from '@/context/StartupsContext';
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 // Sample data for sectors
 const sampleSectors = ['SaaS', 'FinTech', 'HealthTech', 'EdTech', 'E-commerce'];
@@ -15,6 +18,8 @@ const Startups: React.FC = () => {
   const [selectedSector, setSelectedSector] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStartupId, setSelectedStartupId] = useState<string | undefined>();
+  const [hideZeroScores, setHideZeroScores] = useState(false);
+  const [hideUnknownNames, setHideUnknownNames] = useState(false);
   
   // Use the global startups context
   const { startups } = useStartups();
@@ -73,7 +78,7 @@ const Startups: React.FC = () => {
     ];
   };
 
-  // Filter startups based on sector and search query
+  // Filter startups based on sector, search query, and checkboxes
   const filteredStartups = startups
     .filter(startup => 
       selectedSector === 'all' || startup.sector === selectedSector
@@ -82,6 +87,12 @@ const Startups: React.FC = () => {
       searchQuery === '' || 
       startup.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       startup.sector.toLowerCase().includes(searchQuery.toLowerCase())
+    )
+    .filter(startup => 
+      !hideZeroScores || startup.score > 0
+    )
+    .filter(startup => 
+      !hideUnknownNames || (startup.name !== 'Unknown' && startup.name.trim() !== '')
     );
 
   const selectedStartup = startups.find(startup => startup.id === selectedStartupId);
@@ -118,6 +129,35 @@ const Startups: React.FC = () => {
                 selectedSector={selectedSector}
                 onChange={setSelectedSector}
               />
+              
+              <div className="bg-background border rounded-md p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Filter size={16} className="text-muted-foreground" />
+                  <h3 className="text-sm font-medium">Filter Options</h3>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="hide-zero-scores" 
+                      checked={hideZeroScores} 
+                      onCheckedChange={(checked) => setHideZeroScores(checked === true)}
+                    />
+                    <Label htmlFor="hide-zero-scores" className="text-sm cursor-pointer">
+                      Hide startups with 0 score
+                    </Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox 
+                      id="hide-unknown-names" 
+                      checked={hideUnknownNames} 
+                      onCheckedChange={(checked) => setHideUnknownNames(checked === true)}
+                    />
+                    <Label htmlFor="hide-unknown-names" className="text-sm cursor-pointer">
+                      Hide startups with unknown names
+                    </Label>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <div className="space-y-3 overflow-y-auto max-h-[calc(100vh-270px)]">
