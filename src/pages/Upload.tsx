@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '@/components/Layout';
@@ -8,21 +7,14 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowRight, Database, FileSpreadsheet, Layers } from 'lucide-react';
 import { StartupListItem } from '@/components/StartupList';
-
-// Create a context to store the uploaded startups data
-export const StartupsContext = React.createContext<{
-  startups: StartupListItem[];
-  setStartups: React.Dispatch<React.SetStateAction<StartupListItem[]>>;
-}>({
-  startups: [],
-  setStartups: () => {},
-});
+import { useStartups } from '@/context/StartupsContext';
 
 const Upload: React.FC = () => {
   const [isUploaded, setIsUploaded] = useState(false);
   const [parsedData, setParsedData] = useState<StartupListItem[]>([]);
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { addStartups } = useStartups();
 
   const handleFileUpload = (file: File) => {
     console.log('File uploaded:', file);
@@ -57,7 +49,7 @@ const Upload: React.FC = () => {
     const rows = csvData.split('\n');
     
     // Extract header row (assuming first row is header)
-    const headers = rows[0].split(',').map(header => header.trim());
+    const headers = rows[0].split(',').map(header => header.trim().toLowerCase());
     
     // Map CSV data to startup objects
     return rows.slice(1).filter(row => row.trim()).map((row, index) => {
@@ -79,19 +71,19 @@ const Upload: React.FC = () => {
       headers.forEach((header, i) => {
         const value = values[i];
         
-        if (header.includes('Name')) {
+        if (header.includes('name') || header === 'startup') {
           startup.name = value;
-        } else if (header.includes('Sector')) {
+        } else if (header.includes('sector') || header.includes('industry')) {
           startup.sector = value;
-        } else if (header.includes('Monthly Visits')) {
+        } else if (header.includes('monthly visits') || header.includes('visits')) {
           startup.monthlyVisits = parseInt(value.replace(/[^0-9.]/g, '')) || 0;
-        } else if (header.includes('Last Funding')) {
+        } else if (header.includes('last funding') || header.includes('funding')) {
           startup.lastFunding = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
-        } else if (header.includes('Valuation')) {
+        } else if (header.includes('valuation')) {
           startup.valuation = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
-        } else if (header.includes('CAGR')) {
+        } else if (header.includes('cagr') || header.includes('growth')) {
           startup.cagr = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
-        } else if (header.includes('Score')) {
+        } else if (header.includes('score')) {
           startup.score = parseFloat(value) || calculateScore(startup);
         }
       });
@@ -127,8 +119,8 @@ const Upload: React.FC = () => {
   };
 
   const handleProcessData = () => {
-    // Save data to localStorage for persistence
-    localStorage.setItem('uploadedStartups', JSON.stringify(parsedData));
+    // Add startups to context instead of directly to localStorage
+    addStartups(parsedData);
     
     toast({
       title: "Data processed successfully",

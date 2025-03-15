@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Layout from '@/components/Layout';
 import StartupList, { StartupListItem } from '@/components/StartupList';
 import ScoreCard, { ScoreCardMetric } from '@/components/ScoreCard';
@@ -7,104 +6,23 @@ import SectorSelect from '@/components/SectorSelect';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search } from 'lucide-react';
+import { useStartups } from '@/context/StartupsContext';
 
-// Sample data - would be replaced with actual data loading logic
+// Sample data for sectors
 const sampleSectors = ['SaaS', 'FinTech', 'HealthTech', 'EdTech', 'E-commerce'];
-
-const sampleStartups: StartupListItem[] = [
-  {
-    id: '1',
-    name: 'TechPro Analytics',
-    sector: 'SaaS',
-    score: 8.5,
-    monthlyVisits: 125000,
-    lastFunding: 30000000,
-    valuation: 150000000,
-    cagr: 35
-  },
-  {
-    id: '2',
-    name: 'FinEdge',
-    sector: 'FinTech',
-    score: 9.2,
-    monthlyVisits: 200000,
-    lastFunding: 45000000,
-    valuation: 220000000,
-    cagr: 42
-  },
-  {
-    id: '3',
-    name: 'MediSync',
-    sector: 'HealthTech',
-    score: 7.8,
-    monthlyVisits: 95000,
-    lastFunding: 25000000,
-    valuation: 120000000,
-    cagr: 28
-  },
-  {
-    id: '4',
-    name: 'EduBrain',
-    sector: 'EdTech',
-    score: 8.1,
-    monthlyVisits: 80000,
-    lastFunding: 15000000,
-    valuation: 75000000,
-    cagr: 30
-  },
-  {
-    id: '5',
-    name: 'ShopSmart',
-    sector: 'E-commerce',
-    score: 7.5,
-    monthlyVisits: 350000,
-    lastFunding: 50000000,
-    valuation: 200000000,
-    cagr: 25
-  }
-];
-
-const sampleMetrics: ScoreCardMetric[] = [
-  { criteria: 'Monthly Visits', value: '125K visitors', importance: 'Medium', score: 8 },
-  { criteria: 'Last Funding / Total Funding', value: '$30M in Series C', importance: 'High', score: 9 },
-  { criteria: 'Valuation / Total Funding', value: '$150M / $45M', importance: 'High', score: 9 },
-  { criteria: 'CAGR', value: '35%', importance: 'Very High', score: 8 },
-  { criteria: 'Current Market Size', value: '$15B market', importance: 'Medium', score: 7 },
-  { criteria: 'Total VC Score', value: 'Top 5 sector performer', importance: 'High', score: 8 },
-  { criteria: 'Number of Funding Rounds', value: '3 rounds', importance: 'Medium', score: 7 },
-  { criteria: 'Revenue Growth', value: '3x YoY growth', importance: 'Very High', score: 9 },
-];
 
 const Startups: React.FC = () => {
   const [selectedSector, setSelectedSector] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStartupId, setSelectedStartupId] = useState<string | undefined>();
-  const [startups, setStartups] = useState<StartupListItem[]>(sampleStartups);
-  const [sectors, setSectors] = useState<string[]>(sampleSectors);
+  
+  // Use the global startups context
+  const { startups } = useStartups();
 
-  // Load startups from localStorage if available
-  useEffect(() => {
-    const savedStartups = localStorage.getItem('uploadedStartups');
-    if (savedStartups) {
-      try {
-        const parsedStartups = JSON.parse(savedStartups) as StartupListItem[];
-        if (Array.isArray(parsedStartups) && parsedStartups.length > 0) {
-          setStartups(parsedStartups);
-          
-          // Extract unique sectors from the data
-          const uniqueSectors = Array.from(
-            new Set(parsedStartups.map(startup => startup.sector))
-          ).filter(Boolean);
-          
-          if (uniqueSectors.length > 0) {
-            setSectors(uniqueSectors);
-          }
-        }
-      } catch (error) {
-        console.error('Error loading startups data:', error);
-      }
-    }
-  }, []);
+  // Extract unique sectors from the data
+  const sectors = startups.length > 0 
+    ? Array.from(new Set(startups.map(startup => startup.sector))).filter(Boolean)
+    : sampleSectors;
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -113,7 +31,7 @@ const Startups: React.FC = () => {
 
   // Generate metrics for the selected startup
   const generateMetricsForStartup = (startup: StartupListItem): ScoreCardMetric[] => {
-    if (!startup) return sampleMetrics;
+    if (!startup) return [];
     
     return [
       { 
