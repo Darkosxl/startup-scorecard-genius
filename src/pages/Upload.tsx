@@ -5,20 +5,23 @@ import FileUploader from '@/components/FileUploader';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowRight, Database, FileSpreadsheet, Layers } from 'lucide-react';
+import { ArrowRight, Database, FileSpreadsheet, Layers, Trash2 } from 'lucide-react';
 import { StartupListItem } from '@/components/StartupList';
 import { useStartups } from '@/context/StartupsContext';
+import { Badge } from "@/components/ui/badge";
 
 const Upload: React.FC = () => {
   const [isUploaded, setIsUploaded] = useState(false);
   const [parsedData, setParsedData] = useState<StartupListItem[]>([]);
+  const [fileName, setFileName] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { addStartups } = useStartups();
+  const { addStartups, clearStartups } = useStartups();
 
   const handleFileUpload = (file: File) => {
     console.log('File uploaded:', file);
     setIsUploaded(true);
+    setFileName(file.name);
     
     // Process the CSV file
     const reader = new FileReader();
@@ -65,30 +68,57 @@ const Upload: React.FC = () => {
         lastFunding: 0,
         valuation: 0,
         cagr: 0,
+        missingFields: [] as string[]
       };
+      
+      // Keep track of original column data for scorecard
+      startup.originalData = {};
       
       // Map CSV values to startup properties based on headers
       headers.forEach((header, i) => {
         const value = values[i];
         
         if (header.includes('name') || header === 'startup') {
-          startup.name = value;
+          startup.name = value || 'Unknown';
         } else if (header.includes('sector') || header.includes('industry')) {
-          startup.sector = value;
+          startup.sector = value || 'Unknown';
         } else if (header.includes('monthly visits') || header.includes('visits')) {
           startup.monthlyVisits = parseInt(value.replace(/[^0-9.]/g, '')) || 0;
+          if (!value || parseInt(value.replace(/[^0-9.]/g, '')) === 0) {
+            startup.missingFields.push('monthlyVisits');
+          }
+          startup.originalData[header] = value || '0';
         } else if (header.includes('last funding') || header.includes('funding')) {
           startup.lastFunding = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
+          if (!value || parseFloat(value.replace(/[^0-9.]/g, '')) === 0) {
+            startup.missingFields.push('lastFunding');
+          }
+          startup.originalData[header] = value || '0';
         } else if (header.includes('valuation')) {
           startup.valuation = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
+          if (!value || parseFloat(value.replace(/[^0-9.]/g, '')) === 0) {
+            startup.missingFields.push('valuation');
+          }
+          startup.originalData[header] = value || '0';
         } else if (header.includes('cagr') || header.includes('growth')) {
           startup.cagr = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
+          if (!value || parseFloat(value.replace(/[^0-9.]/g, '')) === 0) {
+            startup.missingFields.push('cagr');
+          }
+          startup.originalData[header] = value || '0';
         } else if (header.includes('score')) {
-          startup.score = parseFloat(value) || calculateScore(startup);
+          startup.score = parseFloat(value) || 0;
+          if (!value || parseFloat(value) === 0) {
+            startup.missingFields.push('score');
+          }
+          startup.originalData[header] = value || '0';
+        } else {
+          // Save any additional columns as original data
+          startup.originalData[header] = value || '';
         }
       });
       
-      // Calculate score if not provided
+      // Calculate score if not provided, ignoring missing fields
       if (startup.score === 0) {
         startup.score = calculateScore(startup);
       }
@@ -97,9 +127,10 @@ const Upload: React.FC = () => {
     });
   };
   
-  // Simple scoring function based on available metrics
+  // Simple scoring function based on available metrics, ignoring missing fields
   const calculateScore = (startup: StartupListItem): number => {
     let score = 0;
+    let totalWeight = 0;
     
     // Weight factors (these could be customizable)
     const weights = {
@@ -109,17 +140,36 @@ const Upload: React.FC = () => {
       cagr: 0.3
     };
     
-    // Normalize and add weighted scores
-    if (startup.monthlyVisits > 0) score += (Math.min(startup.monthlyVisits / 100000, 10) * weights.monthlyVisits);
-    if (startup.lastFunding > 0) score += (Math.min(startup.lastFunding / 10000000, 10) * weights.lastFunding);
-    if (startup.valuation > 0) score += (Math.min(startup.valuation / 100000000, 10) * weights.valuation);
-    if (startup.cagr > 0) score += (Math.min(startup.cagr / 10, 10) * weights.cagr);
+    // Normalize and add weighted scores, ignoring missing fields
+    if (!startup.missingFields.includes('monthlyVisits') && startup.monthlyVisits > 0) {
+      score += (Math.min(startup.monthlyVisits / 100000, 10) * weights.monthlyVisits);
+      totalWeight += weights.monthlyVisits;
+    }
     
-    return Math.min(Math.round(score * 10) / 10, 10);
+    if (!startup.missingFields.includes('lastFunding') && startup.lastFunding > 0) {
+      score += (Math.min(startup.lastFunding / 10000000, 10) * weights.lastFunding);
+      totalWeight += weights.lastFunding;
+    }
+    
+    if (!startup.missingFields.includes('valuation') && startup.valuation > 0) {
+      score += (Math.min(startup.valuation / 100000000, 10) * weights.valuation);
+      totalWeight += weights.valuation;
+    }
+    
+    if (!startup.missingFields.includes('cagr') && startup.cagr > 0) {
+      score += (Math.min(startup.cagr / 10, 10) * weights.cagr);
+      totalWeight += weights.cagr;
+    }
+    
+    // If no fields are present, return 0
+    if (totalWeight === 0) return 0;
+    
+    // Normalize score to 1-10 scale based on available weights
+    return Math.max(Math.min(Math.round((score / totalWeight) * 10) / 10 * 10, 10), 1);
   };
 
   const handleProcessData = () => {
-    // Add startups to context instead of directly to localStorage
+    // Add startups to context
     addStartups(parsedData);
     
     toast({
@@ -131,6 +181,19 @@ const Upload: React.FC = () => {
     navigate('/startups');
   };
 
+  const handleDeleteData = () => {
+    clearStartups();
+    setIsUploaded(false);
+    setParsedData([]);
+    setFileName(null);
+    
+    toast({
+      title: "Data deleted",
+      description: "Your startup dataset has been removed from the system",
+      variant: "default"
+    });
+  };
+
   return (
     <Layout>
       <div className="p-6 max-w-7xl mx-auto animate-blur-in">
@@ -139,6 +202,24 @@ const Upload: React.FC = () => {
           <p className="text-slate-500 dark:text-slate-400 mt-1">
             Import your startup dataset for analysis and scoring
           </p>
+          
+          {fileName && (
+            <div className="flex items-center mt-4 p-2 bg-slate-50 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700">
+              <Badge variant="outline" className="mr-2 py-1 px-2">
+                <FileSpreadsheet className="h-3 w-3 mr-1" />
+                {fileName}
+              </Badge>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="ml-auto text-destructive hover:text-destructive hover:bg-destructive/10"
+                onClick={handleDeleteData}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete Dataset
+              </Button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -180,7 +261,7 @@ const Upload: React.FC = () => {
                             <CardContent>
                               <label className="flex items-center cursor-pointer">
                                 <input type="checkbox" className="form-checkbox h-4 w-4 text-primary" defaultChecked />
-                                <span className="ml-2 text-sm">Normalize scores to 0-10 scale</span>
+                                <span className="ml-2 text-sm">Normalize scores to 1-10 scale</span>
                               </label>
                             </CardContent>
                           </Card>
@@ -274,7 +355,7 @@ const Upload: React.FC = () => {
                   <ol className="space-y-2 text-sm ml-4 list-decimal">
                     <li>Your data is processed and validated</li>
                     <li>AI weighing system analyzes the metrics</li>
-                    <li>Startups are scored on a 0-10 scale</li>
+                    <li>Startups are scored on a 1-10 scale</li>
                     <li>Scorecards are generated for each startup</li>
                     <li>Data becomes available for AI chat analysis</li>
                   </ol>

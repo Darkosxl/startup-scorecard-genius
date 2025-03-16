@@ -10,6 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Progress } from "@/components/ui/progress";
+import { StartupListItem } from './StartupList';
 
 export interface ScoreCardMetric {
   criteria: string;
@@ -24,6 +25,7 @@ interface ScoreCardProps {
   metrics: ScoreCardMetric[];
   overallScore: number;
   className?: string;
+  startupData?: StartupListItem;
 }
 
 const importanceColor = {
@@ -39,7 +41,70 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
   metrics,
   overallScore,
   className = '',
+  startupData
 }) => {
+  // Generate dynamic metrics from the startup's original data if available
+  const dynamicMetrics: ScoreCardMetric[] = [];
+  
+  if (startupData?.originalData) {
+    // Define importance based on standard fields we recognize
+    const importanceMap: Record<string, 'Low' | 'Medium' | 'High' | 'Very High'> = {
+      'monthly visits': 'Medium',
+      'last funding': 'High',
+      'funding': 'High',
+      'valuation': 'High',
+      'cagr': 'Very High',
+      'growth': 'Very High',
+      'market size': 'Medium',
+      'revenue': 'High',
+    };
+    
+    // Used to determine dynamic score out of 10 for each metric
+    const normalizeValue = (key: string, value: string): number => {
+      const numValue = parseFloat(value.replace(/[^0-9.]/g, '')) || 0;
+      
+      if (numValue === 0) return 0;
+      
+      if (key.includes('monthly visit')) {
+        return Math.min(Math.round(numValue / 50000), 10);
+      } else if (key.includes('funding')) {
+        return Math.min(Math.round(numValue / 10000000), 10);
+      } else if (key.includes('valuation')) {
+        return Math.min(Math.round(numValue / 50000000), 10);
+      } else if (key.includes('cagr') || key.includes('growth')) {
+        return Math.min(Math.round(numValue / 5), 10);
+      }
+      
+      // Default normalization for unknown metrics
+      return Math.min(Math.round(numValue / 10), 10);
+    };
+    
+    // Create metrics from original data, excluding name and sector
+    Object.entries(startupData.originalData).forEach(([key, value]) => {
+      if (!key.includes('name') && !key.includes('startup') && !key.includes('sector') && !key.includes('industry')) {
+        let importance: 'Low' | 'Medium' | 'High' | 'Very High' = 'Medium';
+        
+        // Determine importance based on key matching
+        for (const [pattern, level] of Object.entries(importanceMap)) {
+          if (key.toLowerCase().includes(pattern)) {
+            importance = level;
+            break;
+          }
+        }
+        
+        dynamicMetrics.push({
+          criteria: key.charAt(0).toUpperCase() + key.slice(1), // Capitalize first letter
+          value: value,
+          importance: importance,
+          score: normalizeValue(key.toLowerCase(), value)
+        });
+      }
+    });
+  }
+
+  // Use dynamically generated metrics if available, otherwise use provided metrics
+  const displayMetrics = dynamicMetrics.length > 0 ? dynamicMetrics : metrics;
+
   return (
     <Card className={`overflow-hidden border border-slate-200 dark:border-slate-700 animate-scale-in ${className}`}>
       <div className="p-6 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
@@ -58,7 +123,7 @@ const ScoreCard: React.FC<ScoreCardProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {metrics.map((metric, index) => (
+            {displayMetrics.map((metric, index) => (
               <TableRow key={index} className="transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50">
                 <TableCell className="font-medium">{metric.criteria}</TableCell>
                 <TableCell>{metric.value}</TableCell>

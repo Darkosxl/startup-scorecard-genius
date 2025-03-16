@@ -8,6 +8,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { CheckCircle2 } from 'lucide-react';
 
 export interface StartupListItem {
   id: string;
@@ -18,6 +19,8 @@ export interface StartupListItem {
   lastFunding: number;
   valuation: number;
   cagr: number;
+  missingFields?: string[];
+  originalData?: Record<string, string>;
 }
 
 interface StartupListProps {
@@ -57,7 +60,15 @@ const StartupList: React.FC<StartupListProps> = ({
           <CardHeader className="pb-2">
             <div className="flex justify-between items-start">
               <div>
-                <CardTitle className="font-medium">{startup.name}</CardTitle>
+                <div className="flex items-center">
+                  <CardTitle className="font-medium">{startup.name}</CardTitle>
+                  {startup.missingFields && startup.missingFields.length > 0 && (
+                    <Badge className="ml-2 bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100 flex items-center">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      MD ({startup.missingFields.length})
+                    </Badge>
+                  )}
+                </div>
                 <CardDescription>{startup.sector}</CardDescription>
               </div>
               <Badge className="bg-primary/10 text-primary hover:bg-primary/20 px-2 py-1">
@@ -69,19 +80,39 @@ const StartupList: React.FC<StartupListProps> = ({
             <div className="grid grid-cols-4 gap-2 text-sm">
               <div>
                 <p className="text-slate-500 dark:text-slate-400">Monthly Visits</p>
-                <p className="font-medium">{startup.monthlyVisits.toLocaleString()}</p>
+                <p className="font-medium flex items-center">
+                  {startup.monthlyVisits.toLocaleString()}
+                  {startup.missingFields?.includes('monthlyVisits') && (
+                    <CheckCircle2 className="h-3 w-3 ml-1 text-green-500" />
+                  )}
+                </p>
               </div>
               <div>
                 <p className="text-slate-500 dark:text-slate-400">Last Funding</p>
-                <p className="font-medium">{formatNumber(startup.lastFunding)}</p>
+                <p className="font-medium flex items-center">
+                  {formatNumber(startup.lastFunding)}
+                  {startup.missingFields?.includes('lastFunding') && (
+                    <CheckCircle2 className="h-3 w-3 ml-1 text-green-500" />
+                  )}
+                </p>
               </div>
               <div>
                 <p className="text-slate-500 dark:text-slate-400">Valuation</p>
-                <p className="font-medium">{formatNumber(startup.valuation)}</p>
+                <p className="font-medium flex items-center">
+                  {formatNumber(startup.valuation)}
+                  {startup.missingFields?.includes('valuation') && (
+                    <CheckCircle2 className="h-3 w-3 ml-1 text-green-500" />
+                  )}
+                </p>
               </div>
               <div>
                 <p className="text-slate-500 dark:text-slate-400">CAGR</p>
-                <p className="font-medium">{startup.cagr}%</p>
+                <p className="font-medium flex items-center">
+                  {startup.cagr}%
+                  {startup.missingFields?.includes('cagr') && (
+                    <CheckCircle2 className="h-3 w-3 ml-1 text-green-500" />
+                  )}
+                </p>
               </div>
             </div>
           </CardContent>

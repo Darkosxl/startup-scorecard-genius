@@ -7,6 +7,7 @@ type StartupsContextType = {
   setStartups: React.Dispatch<React.SetStateAction<StartupListItem[]>>;
   addStartups: (newStartups: StartupListItem[]) => void;
   clearStartups: () => void;
+  getMetricColumns: () => string[];
 };
 
 const defaultValue: StartupsContextType = {
@@ -14,6 +15,7 @@ const defaultValue: StartupsContextType = {
   setStartups: () => {},
   addStartups: () => {},
   clearStartups: () => {},
+  getMetricColumns: () => [],
 };
 
 const StartupsContext = createContext<StartupsContextType>(defaultValue);
@@ -58,8 +60,34 @@ export const StartupsProvider: React.FC<StartupsProviderProps> = ({ children }) 
     localStorage.removeItem('uploadedStartups');
   };
 
+  // Get all metric columns from startups (excluding name and sector)
+  const getMetricColumns = (): string[] => {
+    if (startups.length === 0 || !startups[0].originalData) return [];
+    
+    // Get all unique column names from all startups
+    const allColumns = new Set<string>();
+    startups.forEach(startup => {
+      if (startup.originalData) {
+        Object.keys(startup.originalData).forEach(key => {
+          if (!key.includes('name') && !key.includes('startup') && 
+              !key.includes('sector') && !key.includes('industry')) {
+            allColumns.add(key);
+          }
+        });
+      }
+    });
+    
+    return Array.from(allColumns);
+  };
+
   return (
-    <StartupsContext.Provider value={{ startups, setStartups, addStartups, clearStartups }}>
+    <StartupsContext.Provider value={{ 
+      startups, 
+      setStartups, 
+      addStartups, 
+      clearStartups,
+      getMetricColumns
+    }}>
       {children}
     </StartupsContext.Provider>
   );

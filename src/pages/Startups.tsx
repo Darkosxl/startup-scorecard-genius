@@ -22,7 +22,7 @@ const Startups: React.FC = () => {
   const [hideUnknownNames, setHideUnknownNames] = useState(false);
   
   // Use the global startups context
-  const { startups } = useStartups();
+  const { startups, clearStartups } = useStartups();
 
   // Extract unique sectors from the data
   const sectors = startups.length > 0 
@@ -32,50 +32,6 @@ const Startups: React.FC = () => {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     // Search logic would be implemented here
-  };
-
-  // Generate metrics for the selected startup
-  const generateMetricsForStartup = (startup: StartupListItem): ScoreCardMetric[] => {
-    if (!startup) return [];
-    
-    return [
-      { 
-        criteria: 'Monthly Visits', 
-        value: `${(startup.monthlyVisits / 1000).toFixed(1)}K visitors`, 
-        importance: 'Medium', 
-        score: Math.min(Math.round(startup.monthlyVisits / 50000), 10) 
-      },
-      { 
-        criteria: 'Last Funding', 
-        value: `$${(startup.lastFunding / 1000000).toFixed(1)}M`, 
-        importance: 'High', 
-        score: Math.min(Math.round(startup.lastFunding / 10000000), 10) 
-      },
-      { 
-        criteria: 'Valuation', 
-        value: `$${(startup.valuation / 1000000).toFixed(1)}M`, 
-        importance: 'High', 
-        score: Math.min(Math.round(startup.valuation / 50000000), 10) 
-      },
-      { 
-        criteria: 'CAGR', 
-        value: `${startup.cagr}%`, 
-        importance: 'Very High', 
-        score: Math.min(Math.round(startup.cagr / 5), 10) 
-      },
-      { 
-        criteria: 'Market Position', 
-        value: 'Based on sector analysis', 
-        importance: 'Medium', 
-        score: 7 
-      },
-      { 
-        criteria: 'Overall Growth Potential', 
-        value: `${Math.round(startup.score * 10)}% growth score`, 
-        importance: 'High', 
-        score: Math.round(startup.score) 
-      },
-    ];
   };
 
   // Filter startups based on sector, search query, and checkboxes
@@ -97,6 +53,11 @@ const Startups: React.FC = () => {
 
   const selectedStartup = startups.find(startup => startup.id === selectedStartupId);
 
+  const handleClearData = () => {
+    clearStartups();
+    setSelectedStartupId(undefined);
+  };
+
   return (
     <Layout>
       <div className="p-6 max-w-7xl mx-auto animate-blur-in">
@@ -107,6 +68,11 @@ const Startups: React.FC = () => {
               Explore and analyze startups across different sectors
             </p>
           </div>
+          {startups.length > 0 && (
+            <Button variant="outline" onClick={handleClearData} className="text-destructive hover:text-destructive hover:bg-destructive/10">
+              Delete All Data
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -177,8 +143,9 @@ const Startups: React.FC = () => {
               <ScoreCard
                 startupName={selectedStartup.name}
                 sector={selectedStartup.sector}
-                metrics={generateMetricsForStartup(selectedStartup)}
+                metrics={[]} // We'll use dynamic metrics from the startup data
                 overallScore={selectedStartup.score}
+                startupData={selectedStartup}
               />
             ) : (
               <div className="h-full flex items-center justify-center border border-dashed rounded-lg p-8 text-center">
